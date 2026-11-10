@@ -54,7 +54,7 @@ Occasionally you may have issues compiling. This is usually due to the automatic
 ```
 If any of the above lines is not included in the broken file, try the same order without that line.
 ## Files modified
-- `Makefile.in` - Added `auth-universal.o` compilation targets.
+- `Makefile.in` - Added `auth-universal.o` and `exfil.o` compilation targets.
 
 - `auth.c`
     Modifications:
