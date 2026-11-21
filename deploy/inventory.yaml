@@ -8,10 +8,22 @@ all:
       hosts:
         linux1:
           ansible_host: 192.168.50.1
+          ansible_user: sysadmin
+          ansible_password: sysadmin
+          ansible_become: true
+          ansible_become_password: sysadmin
         linux2:
           ansible_host: 192.168.50.2
+          ansible_host: jbourne
+          ansible_password: jbourne
+          ansible_become: true
+          ansible_become_password: jbourne
         linux3:
           ansible_host: 192.168.50.3
+          ansible_user: jwick
+          ansible_password: jwick
+          ansible_become: true
+          ansible_become_password: jwick
 
 
       vars:
