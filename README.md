@@ -16,7 +16,7 @@ Each modified function (should) be prefixed with: \
 
 ## Installation
 1. Configure password in `install/generate_key.sh` using `openssl passwd -6` and entering your desired password.
-2. Run `install/install.sh`.
+2. Run `install/build.sh`.
     - This will set up the ssh key and build the executables.
     - It will also create .deb and .rpm files in `<project-root>/build/packages`.
 3. Output will be in `<project-root>/output`.

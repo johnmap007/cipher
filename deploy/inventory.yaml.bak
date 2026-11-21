@@ -1,0 +1,55 @@
+all:
+  vars:
+    ansible_user: xxxx
+    ansible_password: "xxxx"
+
+  children:
+    linux:
+      hosts:
+        linux01:
+          ansible_host: 172.16.10.1
+        linux02:
+          ansible_host: 172.16.10.2
+        linux03:
+          ansible_host: 172.16.10.3
+        linux04:
+          ansible_host: 172.16.10.4
+        linux05:
+          ansible_host: 172.16.10.5
+        linux06:
+          ansible_host: 172.16.10.6
+        linux07:
+          ansible_host: 172.16.10.7
+        linux08:
+          ansible_host: 172.16.10.8
+        linux09:
+          ansible_host: 172.16.10.9
+        linux10:
+          ansible_host: 172.16.10.10
+        linux11:
+          ansible_host: 172.16.11.1
+        linux12:
+          ansible_host: 172.16.11.2
+        linux13:
+          ansible_host: 172.16.11.3
+        linux14:
+          ansible_host: 172.16.11.4
+        linux15:
+          ansible_host: 172.16.11.5
+        linux16:
+          ansible_host: 172.16.11.6
+        linux17:
+          ansible_host: 172.16.11.7
+        linux18:
+          ansible_host: 172.16.11.8
+        linux19:
+          ansible_host: 172.16.11.9
+        linux20:
+          ansible_host: 172.16.11.10
+
+
+      vars:
+        ansible_connection: ssh
+        ansible_become: true
+        ansible_become_method: sudo
+        ansible_become_password: "xxxx"

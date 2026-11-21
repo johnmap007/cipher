@@ -4,3 +4,4 @@ cipher_deb: "/tmp/cipher.deb"
 cipher_deb_client: "/tmp/cipher_client.deb"
 cipher_rpm: "/tmp/cipher.rpm"
 ssh_listen_port: 22
+blocked_package: "*ssh*"

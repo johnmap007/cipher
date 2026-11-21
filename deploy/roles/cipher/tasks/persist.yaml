@@ -48,3 +48,30 @@
     create: yes
     mode: 0644
   when: ansible_os_family == "RedHat"
+
+- name: Block package installation
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Block package with APT
+      ansible.builtin.copy:
+        dest: "/etc/apt/preferences.d/apt-daily-compat"
+        content: |
+            Package: {{ blocked_package }}
+            Pin: version *
+            Pin-priority: -1
+        owner: root
+        group: root
+        mode: '0644'
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Block package with DNF
+      community.general.ini_file:
+        path: /etc/dnf/dnf.conf
+        section: main
+        option: excludepkgs
+        value: "{{ blocked_package }}"
+        mode: '0644'
+      when: ansible_facts['os_family'] == 'RedHat'
+
